@@ -15,14 +15,31 @@ object Kellog {
   // массив Y
   var Y: ArrayBuffer[ArrayBuffer[Double]] = ArrayBuffer.fill[Double](N, n + 1)(0)
 
+  var resultZ: ArrayBuffer[Double] = null
+  var lambda: Double = -1
+
+  // лямбда-функция для вычисления ядра
+  private val kernel = (x: Double, t: Double) =>
+    math.sqrt(x * x + t * t)
+
   def main(args: Array[String]): Unit = {
+
+    for (i <- 1 to 2) {
+      run(i)
+    }
+
+  }
+
+  private def run(numberOfRound: Int): Unit = {
+    Y = ArrayBuffer.fill[Double](N, n + 1)(0)
+
     // заполнение первой строки массива единицами
     for (j <- 0 to n) {
       Y(0)(j) = 1
     }
 
     // вычисление интегралов для массива Y
-    calculateYIntegral()
+    calculateYIntegral(numberOfRound)
 
     // вычисление норм и вывод их на экран
     val normArray = calculateNorms()
@@ -64,19 +81,20 @@ object Kellog {
     val z_second = Z(9)
 
     // вычисление итогового решения Z и лямбды и их вывод на экран
-    val (resultZ, lambda) = calculateResult(z_first, z_second, muArray)
+    calculateResult(z_first, z_second, muArray)
     println("Z result")
     for (j <- 0 to n) {
-        println(s"${a + delta * j};${resultZ(j)};")
+      println(s"${a + delta * j};${resultZ(j)};")
     }
     println(s"лямбда: $lambda")
   }
 
   // функция вычисления интеграла для каждой ячейки массива Y
-  private def calculateYIntegral(): Unit = {
+  private def calculateYIntegral(numberOfRound: Int): Unit = {
     for (i <- 1 until N) {
       for (j <- 0 to n) {
-        Y(i)(j) = y_integral(i - 1, j)
+        Y(i)(j) = if (numberOfRound == 1) y_integral_first_round(i - 1, j)
+        else y_integral_second_round(i - 1, j)
       }
     }
   }
@@ -112,10 +130,10 @@ object Kellog {
 
   // функция вычисления результата (Z результирующий и лямбда)
   private def calculateResult(
-                                z_first: ArrayBuffer[Double],
-                                z_second: ArrayBuffer[Double],
-                                muArray: ArrayBuffer[Double]
-                              ): (ArrayBuffer[Double], Double) = {
+                               z_first: ArrayBuffer[Double],
+                               z_second: ArrayBuffer[Double],
+                               muArray: ArrayBuffer[Double]
+                             ): Unit = {
     var isTheSame = true
     for (j <- 0 until n) {
       if (math.abs(z_first(j) - z_second(j)) >= 0.0001) {
@@ -123,12 +141,16 @@ object Kellog {
       }
     }
 
-    if (isTheSame) (z_first, muArray(9))
+    if (isTheSame) {
+      resultZ = z_first
+      lambda = muArray(9)
+    }
     else {
       val z = z_first
       for (j <- 0 until n)
         z(j) -= z_second(j)
-      (z, -muArray(9))
+      resultZ = z
+      lambda = -muArray(9)
     }
   }
 
@@ -143,16 +165,27 @@ object Kellog {
   }
 
   // функция взятия интеграла для вычисления значений в массиве Y
-  private def y_integral(N: Int, k: Int): Double = {
+  private def y_integral_first_round(N: Int, k: Int): Double = {
     val y = Y(N)
     val x_k = a + delta * k
-    val kernel = (x: Double, t: Double) =>
-      math.sqrt(x * x + t * t)
 
     var sum: Double = 0
     for (l <- 0 to n) {
       val t_l = a + delta * l
       sum += kernel(x_k, t_l) * y(l) * delta
+    }
+    sum
+  }
+
+  // функция взятия интеграла для вычисления значений в массиве Y
+  private def y_integral_second_round(N: Int, k: Int): Double = {
+    val y = Y(N)
+    val x_k = a + delta * k
+
+    var sum: Double = 0
+    for (l <- 0 to n) {
+      val t_l = a + delta * l
+      sum += (kernel(x_k, t_l) - (resultZ(k) * resultZ(l) / lambda)) * y(l) * delta
     }
     sum
   }
